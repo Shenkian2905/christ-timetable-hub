@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Header = () => {
   return (
@@ -19,11 +20,11 @@ const Header = () => {
           <Button variant="ghost" size="sm">
             About
           </Button>
-          <Button variant="outline" size="sm">
-            Login
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/login">Login</Link>
           </Button>
-          <Button variant="hero" size="sm">
-            Sign Up
+          <Button variant="hero" size="sm" asChild>
+            <Link to="/signup">Sign Up</Link>
           </Button>
         </div>
       </div>
