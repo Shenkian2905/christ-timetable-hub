@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,11 +14,39 @@ const Login = () => {
     email: "",
     password: ""
   });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    document.title = "Login - Christ Timetable Hub";
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate("/dashboard", { replace: true });
+    });
+  }, [navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login attempted with:", formData);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: formData.email,
+      password: formData.password,
+    });
+    setLoading(false);
+    if (error) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+      });
+      return;
+    }
+    toast({
+      title: "Signed in",
+      description: "Welcome back!",
+    });
+    navigate("/dashboard", { replace: true });
   };
 
   return (
@@ -82,9 +112,9 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" variant="hero">
-                Sign In
-              </Button>
+<Button type="submit" className="w-full" variant="hero" disabled={loading}>
+  {loading ? "Signing in..." : "Sign In"}
+</Button>
 
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{" "}

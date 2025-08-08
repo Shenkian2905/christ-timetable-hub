@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,15 +19,40 @@ const SignUp = () => {
     password: "",
     confirmPassword: ""
   });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    document.title = "Sign Up - Christ Timetable Hub";
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate("/dashboard", { replace: true });
+    });
+  }, [navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match!");
+      toast({ title: "Passwords don't match" });
       return;
     }
-    // Handle signup logic here
-    console.log("Signup attempted with:", formData);
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Sign up failed", description: error.message });
+      return;
+    }
+    toast({ title: "Check your email", description: "Confirm your address to finish signing up." });
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -144,9 +171,9 @@ const SignUp = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" variant="hero">
-                Create Account
-              </Button>
+<Button type="submit" className="w-full" variant="hero" disabled={loading}>
+  {loading ? "Creating account..." : "Create Account"}
+</Button>
 
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
