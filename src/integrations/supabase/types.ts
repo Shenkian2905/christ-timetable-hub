@@ -7,14 +7,225 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      class_groups: {
+        Row: {
+          created_at: string
+          group_name: string
+          id: string
+          student_count: number
+          subject_codes: string[]
+          year_group: number
+        }
+        Insert: {
+          created_at?: string
+          group_name: string
+          id?: string
+          student_count?: number
+          subject_codes: string[]
+          year_group: number
+        }
+        Update: {
+          created_at?: string
+          group_name?: string
+          id?: string
+          student_count?: number
+          subject_codes?: string[]
+          year_group?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          capacity: number
+          created_at: string
+          has_notice_board: boolean
+          id: string
+          room_number: string
+          room_type: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          has_notice_board?: boolean
+          id?: string
+          room_number: string
+          room_type: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          has_notice_board?: boolean
+          id?: string
+          room_number?: string
+          room_type?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          level: string
+          name: string
+          subject_group: string
+          year_group: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          level: string
+          name: string
+          subject_group: string
+          year_group: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          level?: string
+          name?: string
+          subject_group?: string
+          year_group?: number
+        }
+        Relationships: []
+      }
+      teachers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          subjects: string[]
+          teaches_both_years: boolean
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          subjects: string[]
+          teaches_both_years?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          subjects?: string[]
+          teaches_both_years?: boolean
+        }
+        Relationships: []
+      }
+      timetable_entries: {
+        Row: {
+          academic_year: string
+          class_group_id: string
+          created_at: string
+          day_of_week: number
+          id: string
+          is_block_hour: boolean
+          room_id: string | null
+          subject_code: string
+          teacher_id: string | null
+          time_slot: string
+          week_type: string
+        }
+        Insert: {
+          academic_year: string
+          class_group_id: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_block_hour?: boolean
+          room_id?: string | null
+          subject_code: string
+          teacher_id?: string | null
+          time_slot: string
+          week_type: string
+        }
+        Update: {
+          academic_year?: string
+          class_group_id?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_block_hour?: boolean
+          room_id?: string | null
+          subject_code?: string
+          teacher_id?: string | null
+          time_slot?: string
+          week_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_entries_class_group_id_fkey"
+            columns: ["class_group_id"]
+            isOneToOne: false
+            referencedRelation: "class_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timetable_entries_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timetable_entries_subject_code_fkey"
+            columns: ["subject_code"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "timetable_entries_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

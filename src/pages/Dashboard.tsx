@@ -1,23 +1,91 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Users, BookOpen, Clock, Download, Eye, Settings, Plus } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Users, BookOpen, Clock, Download, Eye, Settings, Plus, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useTimetableGeneration } from "@/hooks/useTimetableGeneration";
 
 const Dashboard = () => {
-  const [subjects, setSubjects] = useState([
-    { id: 1, name: "Physics HL", teacher: "Dr. Smith", room: "Lab 1", level: "HL" },
-    { id: 2, name: "Chemistry SL", teacher: "Ms. Johnson", room: "Lab 2", level: "SL" },
-    { id: 3, name: "Mathematics HL", teacher: "Mr. Brown", room: "Room 101", level: "HL" },
-  ]);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { generateTimetable, isGenerating } = useTimetableGeneration();
+  
+  const [subjects, setSubjects] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [classGroups, setClassGroups] = useState([]);
+  const [stats, setStats] = useState({
+    totalSubjects: 0,
+    totalTeachers: 0,
+    totalHours: 0,
+    totalStudents: 0
+  });
+  const [selectedYear, setSelectedYear] = useState("2024-25");
+  const [selectedWeekType, setSelectedWeekType] = useState<'odd' | 'even'>('odd');
 
-  const handleGenerateTimetable = () => {
-    // Navigate to timetable view
-    window.location.href = "/timetable";
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [subjectsResult, teachersResult, roomsResult, classGroupsResult] = await Promise.all([
+        supabase.from('subjects').select('*'),
+        supabase.from('teachers').select('*'),
+        supabase.from('rooms').select('*'),
+        supabase.from('class_groups').select('*')
+      ]);
+
+      if (subjectsResult.data) {
+        setSubjects(subjectsResult.data);
+        setStats(prev => ({ ...prev, totalSubjects: subjectsResult.data.length }));
+      }
+      
+      if (teachersResult.data) {
+        setTeachers(teachersResult.data);
+        setStats(prev => ({ ...prev, totalTeachers: teachersResult.data.length }));
+      }
+      
+      if (roomsResult.data) {
+        setRooms(roomsResult.data);
+      }
+      
+      if (classGroupsResult.data) {
+        setClassGroups(classGroupsResult.data);
+        // Calculate total teaching hours (each class group needs 5 hours per subject per week)
+        const totalHours = classGroupsResult.data.reduce((total, group) => {
+          return total + (group.subject_codes.length * 5);
+        }, 0);
+        // Calculate total students
+        const totalStudents = classGroupsResult.data.reduce((total, group) => total + group.student_count, 0);
+        setStats(prev => ({ ...prev, totalHours, totalStudents }));
+      }
+    } catch (error) {
+      toast({
+        title: "Error fetching data",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleGenerateTimetable = async () => {
+    const result = await generateTimetable({
+      academic_year: selectedYear,
+      week_type: selectedWeekType
+    });
+
+    if (result.success) {
+      navigate("/timetable");
+    }
   };
 
   return (
@@ -64,7 +132,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Subjects</p>
-                  <p className="text-2xl font-bold">{subjects.length}</p>
+                  <p className="text-2xl font-bold">{stats.totalSubjects}</p>
                 </div>
               </div>
             </CardContent>
@@ -77,8 +145,8 @@ const Dashboard = () => {
                   <Users className="h-5 w-5 text-secondary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Students</p>
-                  <p className="text-2xl font-bold">156</p>
+                  <p className="text-sm text-muted-foreground">Total Students</p>
+                  <p className="text-2xl font-bold">{stats.totalStudents}</p>
                 </div>
               </div>
             </CardContent>
@@ -91,8 +159,8 @@ const Dashboard = () => {
                   <Clock className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Teaching Hours</p>
-                  <p className="text-2xl font-bold">30/week</p>
+                  <p className="text-sm text-muted-foreground">Teaching Hours/Week</p>
+                  <p className="text-2xl font-bold">{stats.totalHours}</p>
                 </div>
               </div>
             </CardContent>
@@ -105,8 +173,8 @@ const Dashboard = () => {
                   <Calendar className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Last Updated</p>
-                  <p className="text-sm font-medium">Today</p>
+                  <p className="text-sm text-muted-foreground">Total Teachers</p>
+                  <p className="text-2xl font-bold">{stats.totalTeachers}</p>
                 </div>
               </div>
             </CardContent>
@@ -120,47 +188,139 @@ const Dashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  Subject Management
+                  Data Management
                   <Button size="sm" variant="outline">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Subject
+                    Add New
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  Manage subjects, assign teachers, and configure room allocations
+                  Manage subjects, teachers, rooms, and class groups
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="subjects" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="subjects">Subjects</TabsTrigger>
                     <TabsTrigger value="teachers">Teachers</TabsTrigger>
                     <TabsTrigger value="rooms">Rooms</TabsTrigger>
+                    <TabsTrigger value="groups">Groups</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="subjects" className="space-y-4">
-                    {subjects.map((subject) => (
-                      <div key={subject.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h4 className="font-medium">{subject.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {subject.teacher} • {subject.room} • {subject.level}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">Edit</Button>
-                          <Button variant="ghost" size="sm" className="text-destructive">Delete</Button>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Subject Name</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Level</TableHead>
+                            <TableHead>Year</TableHead>
+                            <TableHead>Group</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subjects.slice(0, 5).map((subject) => (
+                            <TableRow key={subject.id}>
+                              <TableCell className="font-medium">{subject.name}</TableCell>
+                              <TableCell>{subject.code}</TableCell>
+                              <TableCell>
+                                <Badge variant={subject.level === "HL" ? "default" : "secondary"}>
+                                  {subject.level}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>Year {subject.year_group}</TableCell>
+                              <TableCell className="text-sm">{subject.subject_group}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="teachers" className="space-y-4">
-                    <p className="text-muted-foreground">Teacher management coming soon...</p>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Subjects</TableHead>
+                            <TableHead>Both Years</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {teachers.slice(0, 5).map((teacher) => (
+                            <TableRow key={teacher.id}>
+                              <TableCell className="font-medium">{teacher.name}</TableCell>
+                              <TableCell>{teacher.email}</TableCell>
+                              <TableCell className="text-sm">
+                                {teacher.subjects.length} subjects
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={teacher.teaches_both_years ? "default" : "secondary"}>
+                                  {teacher.teaches_both_years ? "Yes" : "No"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="rooms" className="space-y-4">
-                    <p className="text-muted-foreground">Room management coming soon...</p>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Room Number</TableHead>
+                            <TableHead>Capacity</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Notice Board</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rooms.slice(0, 5).map((room) => (
+                            <TableRow key={room.id}>
+                              <TableCell className="font-medium">{room.room_number}</TableCell>
+                              <TableCell>{room.capacity}</TableCell>
+                              <TableCell className="capitalize">{room.room_type.replace('_', ' ')}</TableCell>
+                              <TableCell>
+                                <Badge variant={room.has_notice_board ? "default" : "secondary"}>
+                                  {room.has_notice_board ? "Yes" : "No"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="groups" className="space-y-4">
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Group Name</TableHead>
+                            <TableHead>Year</TableHead>
+                            <TableHead>Students</TableHead>
+                            <TableHead>Subjects</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {classGroups.slice(0, 5).map((group) => (
+                            <TableRow key={group.id}>
+                              <TableCell className="font-medium">{group.group_name}</TableCell>
+                              <TableCell>Year {group.year_group}</TableCell>
+                              <TableCell>{group.student_count}</TableCell>
+                              <TableCell>{group.subject_codes.length} subjects</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>
@@ -179,7 +339,7 @@ const Dashboard = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="year">Academic Year</Label>
-                  <Select defaultValue="2024-25">
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -191,15 +351,14 @@ const Dashboard = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="grade">Grade Level</Label>
-                  <Select defaultValue="both">
+                  <Label htmlFor="week">Week Type</Label>
+                  <Select value={selectedWeekType} onValueChange={(value: 'odd' | 'even') => setSelectedWeekType(value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="both">Both Years</SelectItem>
-                      <SelectItem value="year1">Year 1 Only</SelectItem>
-                      <SelectItem value="year2">Year 2 Only</SelectItem>
+                      <SelectItem value="odd">Odd Week (includes Saturday)</SelectItem>
+                      <SelectItem value="even">Even Week (no Saturday)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -208,8 +367,10 @@ const Dashboard = () => {
                   className="w-full" 
                   variant="hero"
                   onClick={handleGenerateTimetable}
+                  disabled={isGenerating}
                 >
-                  Generate Timetable
+                  {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isGenerating ? 'Generating...' : 'Generate Timetable'}
                 </Button>
               </CardContent>
             </Card>
